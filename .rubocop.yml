@@ -1,0 +1,21 @@
+require:
+  - rubocop-rails
+  - rubocop-rspec
+
+AllCops:
+  SuggestExtensions: false
+  NewCops: disable
+
+Style/Documentation:
+  Enabled: false
+
+Metrics/MethodLength:
+  Max: 20
+  Exclude:
+    - 'db/migrate/*'
+
+Rails/HasAndBelongsToMany:
+  Enabled: false
+
+Rails/UniqueValidationWithoutIndex:
+  Enabled: false

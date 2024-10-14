@@ -19,3 +19,6 @@ Rails/HasAndBelongsToMany:
 
 Rails/UniqueValidationWithoutIndex:
   Enabled: false
+
+Metrics/AbcSize:
+  Max: 40

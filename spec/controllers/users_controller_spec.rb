@@ -4,45 +4,30 @@ require 'rails_helper'
 
 RSpec.describe UsersController, type: :controller do
   describe 'POST #create' do
+    let!(:interests) { [create(:interest, name: 'Reading'), create(:interest, name: 'Music')] }
+    let!(:skills) { [create(:skill, name: 'Ruby'), create(:skill, name: 'JavaScript')] }
+
     let(:valid_params) do
       {
-        user: {
-          name: 'John',
-          surname: 'Doe',
-          patronymic: 'Paul',
-          email: 'john.doe@example.com',
-          age: 30,
-          nationality: 'American',
-          country: 'USA',
-          gender: 'male',
-          interests: %w[Reading Music],
-          skills: 'Ruby,JavaScript'
-        }
+        user: attributes_for(:user, interests: interests.map(&:name), skills: skills.map(&:name).join(','))
       }
     end
 
     let(:invalid_params) do
       {
-        user: {
-          name: '',
-          surname: 'Doe',
-          patronymic: 'Paul',
-          email: '',
-          age: 150,
-          nationality: 'American',
-          country: 'USA',
-          gender: 'unknown',
-          interests: [],
-          skills: ''
-        }
+        user: attributes_for(:user, name: '', email: '', age: 150, gender: 'unknown', skills: '', interests: [])
       }
     end
 
-    before do
-      Interest.create!(name: 'Reading')
-      Interest.create!(name: 'Music')
-      Skill.create!(name: 'Ruby')
-      Skill.create!(name: 'JavaScript')
+    def json_response
+      JSON.parse(response.body)
+    end
+
+    shared_examples 'unprocessable_entity' do
+      it 'returns unprocessable entity status' do
+        post(:create, params:)
+        expect(response).to have_http_status(:unprocessable_entity)
+      end
     end
 
     context 'with valid parameters' do
@@ -53,79 +38,51 @@ RSpec.describe UsersController, type: :controller do
 
       it 'checks the email of the created user' do
         post :create, params: valid_params
-        expect(JSON.parse(response.body)['email']).to eq('john.doe@example.com')
+        expect(json_response['email']).to eq('john.doe@example.com')
       end
     end
 
     context 'with invalid parameters' do
-      it 'does not create a user and returns unprocessable entity status' do
-        post :create, params: invalid_params
-        expect(response).to have_http_status(:unprocessable_entity)
-      end
+      let(:params) { invalid_params }
+
+      it_behaves_like 'unprocessable_entity'
 
       it 'returns email validation error' do
         post :create, params: invalid_params
-        expect(JSON.parse(response.body)['errors']).to include("Email can't be blank")
+        expect(json_response['errors']).to include("Email can't be blank")
       end
 
       it 'returns age and gender validation errors' do
         post :create, params: invalid_params
-        expect(JSON.parse(response.body)['errors']).to include(
-          'Age is not included in the list',
-          'Gender is not included in the list'
+        expect(json_response['errors']).to include(
+          'Age is not included in the list', 'Gender is not included in the list'
         )
       end
     end
 
     context 'with duplicate email' do
       before do
-        User.create!(
-          name: 'John',
-          surname: 'Doe',
-          patronymic: 'Paul',
-          email: 'john.doe@example.com',
-          age: 30,
-          nationality: 'American',
-          country: 'USA',
-          gender: 'male'
-        )
+        create(:user) # Создание пользователя с помощью фабрики
       end
 
-      it 'returns unprocessable entity status for duplicate email' do
-        post :create, params: valid_params
-        expect(response).to have_http_status(:unprocessable_entity)
-      end
+      let(:params) { valid_params }
+
+      it_behaves_like 'unprocessable_entity'
 
       it 'returns error message for duplicate email' do
         post :create, params: valid_params
-        expect(JSON.parse(response.body)['errors']).to include('Email has already been taken')
+        expect(json_response['errors']).to include('Email has already been taken')
       end
     end
 
     context 'when age is outside the allowed range' do
-      let(:params_with_invalid_age) do
-        {
-          user: {
-            name: 'John',
-            surname: 'Doe',
-            patronymic: 'Paul',
-            email: 'john.doe@nomail.com',
-            age: 150,
-            nationality: 'American',
-            country: 'USA',
-            gender: 'male'
-          }
-        }
-      end
+      let(:params) { { user: attributes_for(:user, age: 150) } }
 
-      it 'returns unprocessable entity status for invalid age' do
-        post :create, params: params_with_invalid_age
-        expect(response).to have_http_status(:unprocessable_entity)
-      end
+      it_behaves_like 'unprocessable_entity'
 
       it 'returns error message for age out of range' do
-        post :create, params: params_with_invalid_age
-        expect(JSON.parse(response.body)['errors']).to include('Age is not included in the list')
+        post(:create, params:)
+        expect(json_response['errors']).to include('Age is not included in the list')
       end
     end
   end
